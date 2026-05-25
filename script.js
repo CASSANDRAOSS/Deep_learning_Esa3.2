@@ -293,7 +293,7 @@ function predictNextWord(inputText, topK = 5) {
   if (unknownWords.length > 0) {
     statusDiv.textContent = `Hinweis: Das Modell kennt folgende Wörter nicht: ${unknownWords.join(
       ", "
-    )}.`;
+    )}.` + `Die Vorhersage läuft trotzdem weiter.`;
   } else {
     statusDiv.textContent = "Vorhersage erfolgreich berechnet.";
   }
