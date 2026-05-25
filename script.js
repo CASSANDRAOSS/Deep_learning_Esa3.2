@@ -458,15 +458,16 @@ nextBtn.onclick = () => {
   displayPredictions(topPredictions);
 };
 
-// ==========================================
-// AUTO-BUTTON: Generiert bis zu 10 Wörter
-// ==========================================
+// ============================================================
+// AUTO-BUTTON: Schreibt von alleine bis zu 10 Wörter weiter
+// ============================================================
 autoBtn.onclick = () => {
   let count = 0;
   const maxWords = 10;
 
   clearInterval(autoInterval);
 
+  // Ein Timer sorgt dafür, dass alle halbe Sekunde ein neues Wort erscheint
   autoInterval = setInterval(() => {
     if (count >= maxWords) {
       clearInterval(autoInterval);
@@ -480,14 +481,14 @@ autoBtn.onclick = () => {
       return;
     }
 
-    // 1. Hole exakt die angezeigten Vorhersagen
+    // 1. Hole exakt die 5 besten Vorhersagen, die aktuell gültig sind
     const predictions = predictNextWord(textArea.value, 5);
     if (predictions.length === 0) {
       clearInterval(autoInterval);
       return;
     }
 
-    // 2. Filtere ungültige Tokens heraus
+    // 2. Filtere unschöne Steuerungs-Tokens wie <pad> heraus
     const validPredictions = predictions.filter(
       (p) => p.word !== "<pad>" && p.word !== "<unk>"
     );
@@ -496,17 +497,22 @@ autoBtn.onclick = () => {
       return;
     }
 
-    // 3. Wende die Temperatur NUR auf die angezeigten Wörter an
-    // (Das verhindert, dass er ein unsichtbares Wort wie "muss" auswählt)
+    // 3. Wir holen uns die echten Prozentwerte der gefilterten Wörter
     const probs = validPredictions.map((p) => p.probability);
+    
+    // 4. Jetzt lassen wir die Temperatur würfeln (gibt uns z.B. Index 0, 1 oder 2)
     const sampledIdx = sampleWithTemperature(probs, 0.6);
+    
+    // 5. Ziehe das ausgewählte Wort direkt aus den gültigen Vorhersagen
     const chosenWord = validPredictions[sampledIdx].word;
 
-    // 4. Text anhängen und UI updaten
+    // 6. Text im Textfeld anhängen
     textArea.value = textArea.value.trim() + " " + chosenWord;
 
-    const newPredictions = predictNextWord(textArea.value);
-    displayPredictions(newPredictions);
+    // 7. UI-UPDATE: Berechne die Vorschläge für das NEUE Textfeld-Ende, 
+    // damit die Buttons unten immer zum aktuellen Text passen!
+    const nextPredictions = predictNextWord(textArea.value, 5);
+    displayPredictions(nextPredictions);
 
     count++;
   }, 500);
