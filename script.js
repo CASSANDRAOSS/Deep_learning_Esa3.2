@@ -396,37 +396,26 @@ function sampleWithTemperature(probs, temperature = 0.6) {
 }
 
 // ==========================================
-// WEITER-BUTTON: Nimmt strikt das k=1 Wort!
+// WEITER-BUTTON: Garantiert k=1 (Das absolut wahrscheinlichste Wort)
 // ==========================================
 nextBtn.onclick = () => {
   const textArea = document.getElementById("inputText");
   if (!modelReady || cleanText(textArea.value).length < 1) return;
 
-  // 1. Hole die Vorhersage für den aktuellen Text
-  const words = cleanText(textArea.value);
-  let lastWords = words.slice(-sequenceLength);
-  while (lastWords.length < sequenceLength) lastWords.unshift("<pad>");
-  const seq = lastWords.map((w) =>
-    word2idx[w] === undefined ? word2idx["<unk>"] : word2idx[w]
-  );
+  // 1. Hole exakt die Vorhersagen, die auch unten im UI angezeigt werden!
+  const predictions = predictNextWord(textArea.value, 5);
+  if (predictions.length === 0) return;
 
-  const input = tf.tensor3d([
-    seq.map((idx) => {
-      const oneHot = new Array(vocab.length).fill(0);
-      oneHot[idx] = 1;
-      return oneHot;
-    }),
-  ]);
+  // 2. Nimm strikt das ERSTE Wort (k=1). 
+  let chosenWord = predictions[0].word;
+  
+  // (Sicherung: Falls das beste Wort zufällig das Padding-Token ist, nimm das zweite)
+  if (chosenWord === "<pad>" || chosenWord === "<unk>") {
+    chosenWord = predictions[1] ? predictions[1].word : "";
+  }
 
-  const probs = tf.tidy(() => Array.from(model.predict(input).dataSync()));
-  input.dispose();
-
-  // 2. STRIKT: Finde den Index mit der HÖCHSTEN Wahrscheinlichkeit (k=1)
-  const maxIdx = probs.indexOf(Math.max(...probs));
-  const chosenWord = idx2word[maxIdx];
-
-  // 3. Text anhängen und UI updaten
-  if (chosenWord && chosenWord !== "<pad>" && chosenWord !== "<unk>") {
+  // 3. Text anhängen und UI aktualisieren
+  if (chosenWord) {
     textArea.value = textArea.value.trim() + " " + chosenWord;
   }
 
@@ -435,7 +424,7 @@ nextBtn.onclick = () => {
 };
 
 // ==========================================
-// AUTO-BUTTON: Nutzt Temperatur NUR innerhalb der Top-5
+// AUTO-BUTTON: Generiert bis zu 10 Wörter
 // ==========================================
 autoBtn.onclick = () => {
   let count = 0;
@@ -451,49 +440,36 @@ autoBtn.onclick = () => {
     }
 
     const textArea = document.getElementById("inputText");
-    const words = cleanText(textArea.value);
-    if (words.length < 1) {
+    if (cleanText(textArea.value).length < 1) {
       clearInterval(autoInterval);
       return;
     }
 
-    // Vorhersage holen
-    let lastWords = words.slice(-sequenceLength);
-    while (lastWords.length < sequenceLength) lastWords.unshift("<pad>");
-    const seq = lastWords.map((w) =>
-      word2idx[w] === undefined ? word2idx["<unk>"] : word2idx[w]
-    );
-
-    const input = tf.tensor3d([
-      seq.map((idx) => {
-        const oneHot = new Array(vocab.length).fill(0);
-        oneHot[idx] = 1;
-        return oneHot;
-      }),
-    ]);
-
-    const probs = tf.tidy(() => Array.from(model.predict(input).dataSync()));
-    input.dispose();
-
-    // 1. Beschränke das Sampling NUR auf die Top-5 angezeigten Wörter!
-    const top5Indices = Array.from(probs.keys())
-      .sort((a, b) => probs[b] - probs[a])
-      .slice(0, 5);
-
-    const top5Probs = top5Indices.map((idx) => probs[idx]);
-
-    // 2. Wende das Temperature-Sampling nur auf diese 5 Werte an
-    const sampledTop5Idx = sampleWithTemperature(top5Probs, 0.5);
-    const finalWordIdx = top5Indices[sampledTop5Idx]; // Mappe zurück auf den echten Vokabular-Index
-
-    const chosenWord = idx2word[finalWordIdx];
-
-    if (chosenWord && chosenWord !== "<pad>" && chosenWord !== "<unk>") {
-      textArea.value = textArea.value.trim() + " " + chosenWord;
+    // 1. Hole exakt die angezeigten Vorhersagen
+    const predictions = predictNextWord(textArea.value, 5);
+    if (predictions.length === 0) {
+      clearInterval(autoInterval);
+      return;
     }
 
-    const topPredictions = predictNextWord(textArea.value);
-    displayPredictions(topPredictions);
+    // 2. Filtere ungültige Tokens heraus
+    const validPredictions = predictions.filter(p => p.word !== "<pad>" && p.word !== "<unk>");
+    if (validPredictions.length === 0) {
+      clearInterval(autoInterval);
+      return;
+    }
+
+    // 3. Wende die Temperatur NUR auf die angezeigten Wörter an 
+    // (Das verhindert, dass er ein unsichtbares Wort wie "muss" auswählt)
+    const probs = validPredictions.map(p => p.probability);
+    const sampledIdx = sampleWithTemperature(probs, 0.6);
+    const chosenWord = validPredictions[sampledIdx].word;
+
+    // 4. Text anhängen und UI updaten
+    textArea.value = textArea.value.trim() + " " + chosenWord;
+    
+    const newPredictions = predictNextWord(textArea.value);
+    displayPredictions(newPredictions);
 
     count++;
   }, 500);
