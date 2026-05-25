@@ -302,11 +302,9 @@ function predictNextWord(inputText, topK = 5) {
 
   // Wörter in Zahlen umwandeln
   const seq = lastWords.map((w) => {
-    // unbekanntes Wort
     if (word2idx[w] === undefined) {
       return word2idx["<unk>"];
     }
-
     return word2idx[w];
   });
 
@@ -319,13 +317,27 @@ function predictNextWord(inputText, topK = 5) {
     }),
   ]);
 
-  // Vorhersage
+  // Vorhersage ausführen
   const probs = tf.tidy(() => {
     const prediction = model.predict(input);
     return Array.from(prediction.dataSync());
   });
 
   input.dispose();
+
+  // ==========================================
+  // NEU: DYNAMISCHE WIEDERHOLUNGSSPERRE
+  // ==========================================
+  // Wir schauen uns die letzten 3 geschriebenen Wörter an.
+  const recentWords = words.slice(-3);
+  recentWords.forEach((w) => {
+    const idx = word2idx[w];
+    // Wenn das Wort im Vokabular existiert, strafen wir es ab (Mal 0.1)
+    if (idx !== undefined && w !== "<pad>" && w !== "<unk>") {
+      probs[idx] *= 0.1; // Senkt die Chance dramatisch, dass es sich sofort wiederholt
+    }
+  });
+  // ==========================================
 
   // Beste Vorhersagen holen
   const topIndices = Array.from(probs.keys())
@@ -406,9 +418,9 @@ nextBtn.onclick = () => {
   const predictions = predictNextWord(textArea.value, 5);
   if (predictions.length === 0) return;
 
-  // 2. Nimm strikt das ERSTE Wort (k=1). 
+  // 2. Nimm strikt das ERSTE Wort (k=1).
   let chosenWord = predictions[0].word;
-  
+
   // (Sicherung: Falls das beste Wort zufällig das Padding-Token ist, nimm das zweite)
   if (chosenWord === "<pad>" || chosenWord === "<unk>") {
     chosenWord = predictions[1] ? predictions[1].word : "";
@@ -453,21 +465,23 @@ autoBtn.onclick = () => {
     }
 
     // 2. Filtere ungültige Tokens heraus
-    const validPredictions = predictions.filter(p => p.word !== "<pad>" && p.word !== "<unk>");
+    const validPredictions = predictions.filter(
+      (p) => p.word !== "<pad>" && p.word !== "<unk>"
+    );
     if (validPredictions.length === 0) {
       clearInterval(autoInterval);
       return;
     }
 
-    // 3. Wende die Temperatur NUR auf die angezeigten Wörter an 
+    // 3. Wende die Temperatur NUR auf die angezeigten Wörter an
     // (Das verhindert, dass er ein unsichtbares Wort wie "muss" auswählt)
-    const probs = validPredictions.map(p => p.probability);
+    const probs = validPredictions.map((p) => p.probability);
     const sampledIdx = sampleWithTemperature(probs, 0.6);
     const chosenWord = validPredictions[sampledIdx].word;
 
     // 4. Text anhängen und UI updaten
     textArea.value = textArea.value.trim() + " " + chosenWord;
-    
+
     const newPredictions = predictNextWord(textArea.value);
     displayPredictions(newPredictions);
 
