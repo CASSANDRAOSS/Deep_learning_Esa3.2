@@ -4,110 +4,17 @@ body {
     background: #fafafa;
     color: #333;
     margin: 40px auto;
-    max-width: 800px;
+    max-width: 850px;
     line-height: 1.6;
 }
 
-/* Überschrift */
-h1 {
-    text-align: center;
-    font-weight: 600;
-    margin-bottom: 25px;
-    color: #222;
-}
-
-/* Textarea */
-textarea {
-    width: 100%;
-    font-size: 16px;
-    padding: 12px;
-    border-radius: 8px;
-    border: 1px solid #ccc;
-    background: white;
-    resize: vertical;
-}
-
-/* Button-Leiste */
-button {
-    padding: 10px 18px;
-    margin: 6px 4px;
-    border: none;
-    border-radius: 8px;
-    font-size: 15px;
-    cursor: pointer;
-    transition: 0.2s ease;
-}
-
-/* Primäre Buttons */
-#predictBtn, #nextBtn, #autoBtn {
-    background: #4a90e2;
-    color: white;
-}
-
-#predictBtn:hover,
-#nextBtn:hover,
-#autoBtn:hover {
-    background: #3a78c2;
-}
-
-/* Stopp */
-#stopBtn {
-    background: #e94e4e;
-    color: white;
-}
-
-#stopBtn:hover {
-    background: #c63c3c;
-}
-
-/* Reset */
-#resetBtn {
-    background: #ddd;
-}
-
-#resetBtn:hover {
-    background: #ccc;
-}
-
-/* Predictions */
-#predictions {
-    margin-top: 15px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-}
-
-#predictions button {
-    background: #eee;
-    color: #333;
-    border-radius: 6px;
-    padding: 8px 12px;
-}
-
-#predictions button:hover {
-    background: #ddd;
-}
-
-/* Statusanzeige */
-#status {
-    margin-top: 15px;
-    font-style: italic;
-    color: #666;
-}
-
-/* Ergebnisse / Doku */
-h2 {
-    margin-top: 35px;
-    font-weight: 600;
-    color: #222;
-}
-
-#results, #documentation, #discussion {
-    background: white;
-    padding: 15px;
-    border-radius: 8px;
-    border: 1px solid #ddd;
-    margin-top: 10px;
+/* Hauptbereich */
+.main-section {
+    background: #ffffff;
+    padding: 25px;
+    border-radius: 14px;
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.04);
 }
 
 /* Header */
@@ -124,10 +31,186 @@ h2 {
     border-radius: 12px;
 }
 
+/* Überschrift */
+h1 {
+    font-weight: 600;
+    color: #222;
+    margin: 0;
+}
+
+h2 {
+    margin-top: 35px;
+    font-weight: 600;
+    color: #222;
+}
+
+h3 {
+    color: #222;
+}
+
+/* Einleitung */
+.intro-text {
+    background: #f2f7ff;
+    border-left: 4px solid #4a90e2;
+    padding: 12px 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+/* Label */
+label {
+    display: block;
+    margin-bottom: 6px;
+}
+
+/* Textarea */
+textarea {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 16px;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    background: white;
+    resize: vertical;
+    min-height: 120px;
+}
+
+textarea:focus {
+    outline: none;
+    border-color: #4a90e2;
+    box-shadow: 0 0 0 3px rgba(74,144,226,0.15);
+}
+
 /* Button-Reihe */
 .button-row {
-    margin-top: 10px;
+    margin-top: 12px;
     margin-bottom: 10px;
+}
+
+/* Buttons allgemein */
+button {
+    padding: 10px 18px;
+    margin: 6px 4px 6px 0;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+/* Deaktivierte Buttons */
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Primäre Buttons */
+#predictBtn,
+#nextBtn,
+#autoBtn {
+    background: #4a90e2;
+    color: white;
+}
+
+#predictBtn:hover:not(:disabled),
+#nextBtn:hover:not(:disabled),
+#autoBtn:hover:not(:disabled) {
+    background: #3a78c2;
+}
+
+/* Stopp */
+#stopBtn {
+    background: #e94e4e;
+    color: white;
+}
+
+#stopBtn:hover:not(:disabled) {
+    background: #c63c3c;
+}
+
+/* Reset */
+#resetBtn {
+    background: #ddd;
+    color: #333;
+}
+
+#resetBtn:hover:not(:disabled) {
+    background: #ccc;
+}
+
+/* Predictions */
+#predictions {
+    margin-top: 15px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+#predictions button {
+    background: #eef2f7;
+    color: #333;
+    border-radius: 6px;
+    padding: 8px 12px;
+}
+
+#predictions button:hover {
+    background: #dde6f0;
+}
+
+/* Statusanzeige */
+#status {
+    margin-top: 15px;
+    font-style: italic;
+    color: #666;
+}
+
+/* Ergebnis- und Trainingsboxen */
+.training-box,
+.results-box {
+    background: white;
+    padding: 18px;
+    border-radius: 10px;
+    border: 1px solid #ddd;
+    margin-top: 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.training-box h3,
+.results-box h3 {
+    margin-top: 0;
+    color: #222;
+}
+
+#trainingStatus {
+    margin-bottom: 12px;
+    font-style: italic;
+    color: #666;
+}
+
+#trainingChart {
+    max-height: 280px;
+}
+
+/* Evaluation-Zeilen */
+.metric-line {
+    padding: 7px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.metric-line:last-child {
+    border-bottom: none;
+}
+
+/* Warnhinweise */
+.warning-box {
+    background: #fff7e6;
+    border: 1px solid #ffd591;
+    color: #664d03;
+    padding: 12px 14px;
+    border-radius: 8px;
+    margin-top: 10px;
+    width: 100%;
 }
 
 /* Hilfe-Sektion */
@@ -146,6 +229,7 @@ h2 {
 
 .help-box ul {
     margin-left: 20px;
+    padding-left: 10px;
 }
 
 /* Dropdown-Container */
@@ -158,7 +242,7 @@ h2 {
     width: 100%;
     text-align: left;
     padding: 12px 15px;
-    background: hsl(155, 72%, 59%);
+    background: hsl(155, 72%, 42%);
     color: white;
     border: none;
     border-radius: 8px;
@@ -168,10 +252,10 @@ h2 {
 }
 
 .dropdown-toggle:hover {
-    background: #3a78c2;
+    background: #2f9b72;
 }
 
-/* Inhalt (zunächst versteckt) */
+/* Inhalt zunächst versteckt */
 .dropdown-content {
     display: none;
     background: white;
@@ -184,4 +268,33 @@ h2 {
 /* Sichtbar, wenn aktiv */
 .dropdown.open .dropdown-content {
     display: block;
+}
+
+/* Mobile Optimierung */
+@media (max-width: 600px) {
+    body {
+        margin: 20px 12px;
+    }
+
+    .main-section {
+        padding: 18px;
+    }
+
+    .header {
+        align-items: flex-start;
+    }
+
+    .header-icon {
+        width: 64px;
+        height: 64px;
+    }
+
+    h1 {
+        font-size: 24px;
+    }
+
+    button {
+        width: 100%;
+        margin-right: 0;
+    }
 }
