@@ -1,9 +1,9 @@
-let vocab = [];
-let word2idx = {};
-let idx2word = {};
-let sequences = [];
-let nextWords = [];
-const sequenceLength = 5;
+let vocab = []; // Hier landen alle einzelnen Wörter aus dem Text
+let word2idx = {}; // Zum Nachschlagen: Welches Wort hat welche Nummer?
+let idx2word = {}; // Zum Nachschlagen: Welche Nummer gehört zu welchem Wort?
+let sequences = []; // Die Text-Häppchen fürs Training (X)
+let nextWords = []; // Das jeweils darauffolgende richtige Wort (y)
+const sequenceLength = 5; // Das Modell schaut sich immer 5 Wörter an
 
 let model;
 let modelReady = false;
@@ -25,6 +25,7 @@ const statusDiv = document.getElementById("status");
 const resultsDiv = document.getElementById("results");
 const trainingStatusDiv = document.getElementById("trainingStatus");
 
+// Macht alle Buttons während des Trainings aus, damit man nichts durcheinanderbringt
 function setButtonsEnabled(enabled) {
   [predictBtn, nextBtn, autoBtn, stopBtn, resetBtn].forEach((btn) => {
     btn.disabled = !enabled;
@@ -35,6 +36,7 @@ function setButtonsEnabled(enabled) {
 // HILFSFUNKTIONEN
 // ------------------------------------------------------------
 function cleanText(text) {
+  // Alles klein schreiben, Satzzeichen löschen und bei Leerzeichen trennen
   return text
     .toLowerCase()
     .replace(/[.,!?;:"„“()\-\n]/g, " ")
@@ -70,13 +72,16 @@ async function loadData() {
       throw new Error("Der Trainingskorpus ist zu klein.");
     }
 
+    // Einzigartige Wörter filtern und Platzhalter für Padding und unbekannte Wörter einfügen
     vocab = ["<pad>", "<unk>", ...Array.from(new Set(words))];
 
+    // Die Übersetzungslisten (Wort zu Zahl und umgekehrt) befüllen
     vocab.forEach((word, idx) => {
       word2idx[word] = idx;
       idx2word[idx] = word;
     });
 
+    // Schiebefenster: Geht durch den Text und packt immer 5 Wörter in X und das nächste Wort in y
     for (let i = 0; i <= words.length - sequenceLength - 1; i++) {
       const seq = words.slice(i, i + sequenceLength);
       sequences.push(seq.map((w) => word2idx[w]));
@@ -106,6 +111,7 @@ function prepareTrainingData() {
   const X = [];
   const y = [];
 
+  // Wörter in Nullen und Einsen umwandeln (One-Hot), weil das Netz keine Strings versteht
   sequences.forEach((seq, i) => {
     const xSeq = seq.map((idx) => {
       const oneHot = new Array(vocab.length).fill(0);
@@ -120,6 +126,7 @@ function prepareTrainingData() {
     y.push(yVec);
   });
 
+  // Alles in Tensoren packen, damit TensorFlow.js damit arbeiten kann
   return {
     X_tensor: tf.tensor3d(X),
     y_tensor: tf.tensor2d(y),
@@ -132,6 +139,7 @@ function prepareTrainingData() {
 function createModel() {
   model = tf.sequential();
 
+  // Erste LSTM-Schicht (braucht returnSequences, damit die nächste Schicht auch Sequenzen kriegt)
   model.add(
     tf.layers.lstm({
       units: 100,
@@ -140,12 +148,14 @@ function createModel() {
     })
   );
 
+  // Zweite LSTM-Schicht für mehr Tiefe bei der Satzstruktur
   model.add(
     tf.layers.lstm({
       units: 100,
     })
   );
 
+  // Ausgangsschicht: Softmax gibt uns Wahrscheinlichkeiten für jedes einzelne Wort aus
   model.add(
     tf.layers.dense({
       units: vocab.length,
@@ -153,6 +163,7 @@ function createModel() {
     })
   );
 
+  // Optimizer und Fehlerfunktion festlegen
   model.compile({
     optimizer: tf.train.adam(0.001),
     loss: "categoricalCrossentropy",
@@ -184,31 +195,15 @@ function initTrainingChart() {
     data: {
       labels: epochLabels,
       datasets: [
-        {
-          label: "Loss",
-          data: lossValues,
-          tension: 0.25,
-        },
-        {
-          label: "Accuracy",
-          data: accuracyValues,
-          tension: 0.25,
-        },
+        { label: "Loss", data: lossValues, tension: 0.25 },
+        { label: "Accuracy", data: accuracyValues, tension: 0.25 },
       ],
     },
     options: {
       responsive: true,
       animation: false,
-      plugins: {
-        legend: {
-          display: true,
-        },
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-        },
-      },
+      plugins: { legend: { display: true } },
+      scales: { y: { beginAtZero: true } },
     },
   });
 }
@@ -223,10 +218,11 @@ async function trainModel(X, y) {
 
   initTrainingChart();
 
+  // Eigentliches Training starten (15 Durchgänge durch die Daten)
   await model.fit(X, y, {
     epochs: 15,
     batchSize: 32,
-    shuffle: true,
+    shuffle: true, // Sätze durchmischen, damit die Reihenfolge nicht auswendig gelernt wird
     callbacks: {
       onEpochEnd: async (epoch, logs) => {
         const currentEpoch = epoch + 1;
@@ -247,9 +243,10 @@ async function trainModel(X, y) {
         }
 
         if (trainingChart) {
-          trainingChart.update();
+          trainingChart.update(); // Diagramm live updaten
         }
 
+        // Dem Browser kurz Zeit geben, um die Seite flüssig neu zu zeichnen
         await tf.nextFrame();
       },
     },
@@ -279,32 +276,32 @@ function predictNextWord(inputText, topK = 5) {
     return [];
   }
 
-  // Letzte Wörter holen
+  // Die letzten geschriebenen Wörter für den Kontext rausschneiden
   let lastWords = words.slice(-sequenceLength);
 
-  // Fehlende Positionen mit <pad> auffüllen
+  // Wenn weniger als 5 Wörter da sind, von links mit <pad> auffüllen
   while (lastWords.length < sequenceLength) {
     lastWords.unshift("<pad>");
   }
 
-  // Unbekannte Wörter erkennen
+  // Schauen, ob Wörter eingegeben wurden, die gar nicht im Textkorpus vorkamen
   const unknownWords = words.filter((w) => word2idx[w] === undefined);
 
   if (unknownWords.length > 0) {
     statusDiv.textContent = `Hinweis: Das Modell kennt folgende Wörter nicht: ${unknownWords.join(
       ", "
-    )}.` + `Die Vorhersage läuft trotzdem weiter.`;
+    )}. Die Vorhersage läuft trotzdem weiter.`;
   } else {
     statusDiv.textContent = "Vorhersage erfolgreich berechnet.";
   }
 
-  // Wörter in Zahlen umwandeln
+  // Wörter in die passenden Zahlen-IDs übersetzen (unbekannte kriegen <unk>)
   const seq = lastWords.map((w) => {
     if (word2idx[w] === undefined) return word2idx["<unk>"];
     return word2idx[w];
   });
 
-  // Tensor erzeugen
+  // Tensor für die Vorhersage bauen
   const input = tf.tensor3d([
     seq.map((idx) => {
       const oneHot = new Array(vocab.length).fill(0);
@@ -313,7 +310,7 @@ function predictNextWord(inputText, topK = 5) {
     }),
   ]);
 
-  // Vorhersage ausführen
+  // Vorhersage ausführen (tf.tidy räumt danach den Grafikspeicher auf)
   let probs = tf.tidy(() => {
     const prediction = model.predict(input);
     return Array.from(prediction.dataSync());
@@ -325,19 +322,17 @@ function predictNextWord(inputText, topK = 5) {
   // ERWEITERTE SCHLEIFEN-BREMSE & STOPPWORT-REGULIERUNG
   // ============================================================
 
-  // 1. Bestrafe Wörter, die in den letzten 6 Wörtern vorkamen
+  // 1. Wiederholungssperre: Wörter aus den letzten 6 Positionen raussuchen und prozentual abstrafen
   const recentWords = words.slice(-6);
   recentWords.forEach((w) => {
     const idx = word2idx[w];
     if (idx !== undefined && w !== "<pad>" && w !== "<unk>") {
-      // Je öfter es vorkommt, desto härter die Strafe
-      probs[idx] *= 0.05;
+      probs[idx] *= 0.05; // Wahrscheinlichkeit massiv runterdrücken
     }
   });
 
-  // 2. Wenn das Modell unsicher ist (Maximum unter 15%),
-  // drosseln wir die grammatikalischen "Füllwörter" massiv,
-  // um Inhaltswörter wie "kompression" nach oben zu spülen!
+  // 2. Stoppwort-Bremse: Wenn das Modell ratlos ist (Beste Option unter 15%),
+  // drücken wir Füllwörter weg, damit sinnvolle Inhaltswörter nach oben rutschen
   const maxProb = Math.max(...probs);
   if (maxProb < 0.15) {
     const stopWords = [
@@ -356,18 +351,17 @@ function predictNextWord(inputText, topK = 5) {
     stopWords.forEach((word) => {
       const idx = word2idx[word];
       if (idx !== undefined) {
-        probs[idx] *= 0.1; // Drücke Stoppwörter aktiv weg
+        probs[idx] *= 0.1;
       }
     });
   }
   // ============================================================
 
-  // Beste Vorhersagen holen
+  // Die Ergebnisse sortieren, damit die wahrscheinlichsten Wörter ganz vorne stehen
   const topIndices = Array.from(probs.keys())
     .sort((a, b) => probs[b] - probs[a])
     .slice(0, topK);
 
-  // Wörter zurückgeben
   return topIndices.map((idx) => ({
     word: idx2word[idx],
     probability: probs[idx],
@@ -381,14 +375,16 @@ function displayPredictions(predictions) {
   const predDiv = document.getElementById("predictions");
   predDiv.innerHTML = "";
 
+  // Für jedes vorgeschlagene Wort einen klickbaren Button erstellen
   predictions.forEach((p) => {
     const btn = document.createElement("button");
     btn.textContent = `${p.word} (${(p.probability * 100).toFixed(1)}%)`;
 
     btn.onclick = () => {
       const textArea = document.getElementById("inputText");
-      textArea.value += " " + p.word;
+      textArea.value += " " + p.word; // Wort im Textfeld ergänzen
 
+      // Sofort die Vorschläge für das neue Satzende berechnen
       const newPredictions = predictNextWord(textArea.value);
       displayPredictions(newPredictions);
     };
@@ -408,48 +404,45 @@ predictBtn.onclick = () => {
   }
 };
 
-// Funktion für Temperature-Sampling (verhindert Endlosschleifen)
+// Berechnet eine etwas zufälligere Auswahl für den Auto-Button anhand der Temperatur (0.6)
 function sampleWithTemperature(probs, temperature = 0.6) {
-  // 1. Logits aus den Wahrscheinlichkeiten rekonstruieren und durch Temperatur teilen
+  // 1. Logits künstlich verzerren (durch die Temperatur teilen)
   let logits = probs.map((p) => Math.log(p + 1e-7) / temperature);
 
-  // 2. Erneutes Softmax über die skalierten Logits berechnen
+  // 2. Softmax neu berechnen, um wieder gültige Prozentwerte zu kriegen
   const expLogits = logits.map((l) => Math.exp(l));
   const sumExpLogits = expLogits.reduce((a, b) => a + b, 0);
   const scaledProbs = expLogits.map((e) => e / sumExpLogits);
 
-  // 3. Zufällige Auswahl basierend auf der neuen Wahrscheinlichkeitsverteilung
+  // 3. Basierend auf der neuen Verteilung zufällig ein Wort ziehen
   const r = Math.random();
   let cumulativeProbability = 0;
   for (let i = 0; i < scaledProbs.length; i++) {
     cumulativeProbability += scaledProbs[i];
     if (r <= cumulativeProbability) {
-      return i; // Gibt den Index des gewählten Wortes zurück
+      return i;
     }
   }
-  return probs.indexOf(Math.max(...probs)); // Fallback: Sicherung bei Rundungsfehlern
+  return probs.indexOf(Math.max(...probs)); // Fallback, falls bei den Kommastellen was schiefgeht
 }
 
 // ==========================================
-// WEITER-BUTTON: Garantiert k=1 (Das absolut wahrscheinlichste Wort)
+// WEITER-BUTTON: Nimmt stur das wahrscheinlichste Wort (Platz 1)
 // ==========================================
 nextBtn.onclick = () => {
   const textArea = document.getElementById("inputText");
   if (!modelReady || cleanText(textArea.value).length < 1) return;
 
-  // 1. Hole exakt die Vorhersagen, die auch unten im UI angezeigt werden!
   const predictions = predictNextWord(textArea.value, 5);
   if (predictions.length === 0) return;
 
-  // 2. Nimm strikt das ERSTE Wort (k=1).
-  let chosenWord = predictions[0].word;
+  let chosenWord = predictions[0].word; // Stur Platz 1 nehmen
 
-  // (Sicherung: Falls das beste Wort zufällig das Padding-Token ist, nimm das zweite)
+  // Falls Platz 1 ein technischer Platzhalter ist, weichen wir auf Platz 2 aus
   if (chosenWord === "<pad>" || chosenWord === "<unk>") {
     chosenWord = predictions[1] ? predictions[1].word : "";
   }
 
-  // 3. Text anhängen und UI aktualisieren
   if (chosenWord) {
     textArea.value = textArea.value.trim() + " " + chosenWord;
   }
@@ -467,7 +460,6 @@ autoBtn.onclick = () => {
 
   clearInterval(autoInterval);
 
-  // Ein Timer sorgt dafür, dass alle halbe Sekunde ein neues Wort erscheint
   autoInterval = setInterval(() => {
     if (count >= maxWords) {
       clearInterval(autoInterval);
@@ -481,14 +473,14 @@ autoBtn.onclick = () => {
       return;
     }
 
-    // 1. Hole exakt die 5 besten Vorhersagen, die aktuell gültig sind
+    // 1. Hole die aktuell angezeigten Top-5 Wörter
     const predictions = predictNextWord(textArea.value, 5);
     if (predictions.length === 0) {
       clearInterval(autoInterval);
       return;
     }
 
-    // 2. Filtere unschöne Steuerungs-Tokens wie <pad> heraus
+    // 2. System-Tokens rausfiltern
     const validPredictions = predictions.filter(
       (p) => p.word !== "<pad>" && p.word !== "<unk>"
     );
@@ -497,20 +489,17 @@ autoBtn.onclick = () => {
       return;
     }
 
-    // 3. Wir holen uns die echten Prozentwerte der gefilterten Wörter
+    // 3. Nur die Prozentwerte der im UI sichtbaren Wörter nehmen
     const probs = validPredictions.map((p) => p.probability);
-    
-    // 4. Jetzt lassen wir die Temperatur würfeln (gibt uns z.B. Index 0, 1 oder 2)
+
+    // 4. Temperatur-Zufall auf diese Auswahl anwenden
     const sampledIdx = sampleWithTemperature(probs, 0.6);
-    
-    // 5. Ziehe das ausgewählte Wort direkt aus den gültigen Vorhersagen
     const chosenWord = validPredictions[sampledIdx].word;
 
-    // 6. Text im Textfeld anhängen
+    // 5. Text im Textfeld ergänzen
     textArea.value = textArea.value.trim() + " " + chosenWord;
 
-    // 7. UI-UPDATE: Berechne die Vorschläge für das NEUE Textfeld-Ende, 
-    // damit die Buttons unten immer zum aktuellen Text passen!
+    // 6. UI-Vorschläge sofort für das NEUE Textende berechnen, damit Buttons und Text zusammenpassen
     const nextPredictions = predictNextWord(textArea.value, 5);
     displayPredictions(nextPredictions);
 
@@ -538,6 +527,7 @@ function computeTopKAccuracy(X, y, kValues = [1, 5, 10, 20, 100]) {
   const topKCounts = kValues.map(() => 0);
   const total = X.shape[0];
 
+  // Testen, wie oft das echte nächste Wort in den Top-K Vorschlägen des Modells auftaucht
   for (let i = 0; i < total; i++) {
     const input = X.slice([i, 0, 0], [1, X.shape[1], X.shape[2]]);
     const trueTensor = y.slice([i, 0], [1, y.shape[1]]).argMax(-1);
@@ -571,6 +561,7 @@ function computeTopKAccuracy(X, y, kValues = [1, 5, 10, 20, 100]) {
   });
 }
 
+// Berechnet die Unsicherheit des Modells (je kleiner, desto treffsicherer ist es)
 function computePerplexity(X, y) {
   const total = X.shape[0];
   let lossSum = 0;
@@ -583,7 +574,7 @@ function computePerplexity(X, y) {
     const preds = model.predict(input).dataSync();
     const prob = preds[trueIdx];
 
-    lossSum += -Math.log(prob + 1e-7);
+    lossSum += -Math.log(prob + 1e-7); // Fehlerwerte aufsummieren
 
     input.dispose();
     trueTensor.dispose();
@@ -605,24 +596,18 @@ async function runTraining() {
     setButtonsEnabled(false);
 
     statusDiv.textContent = "Daten werden geladen...";
-    if (trainingStatusDiv) {
+    if (trainingStatusDiv)
       trainingStatusDiv.textContent = "Daten werden geladen...";
-    }
-
     await loadData();
 
     statusDiv.textContent = "Trainingsdaten werden vorbereitet...";
-    if (trainingStatusDiv) {
+    if (trainingStatusDiv)
       trainingStatusDiv.textContent = "Trainingsdaten werden vorbereitet...";
-    }
-
     const { X_tensor, y_tensor } = prepareTrainingData();
 
     statusDiv.textContent = "Modell wird erstellt...";
-    if (trainingStatusDiv) {
+    if (trainingStatusDiv)
       trainingStatusDiv.textContent = "Modell wird erstellt...";
-    }
-
     createModel();
 
     statusDiv.textContent = "Modell wird trainiert...";
@@ -630,14 +615,11 @@ async function runTraining() {
       trainingStatusDiv.textContent =
         "Modell wird trainiert. Die Kurve wird während des Trainings aktualisiert.";
     }
-
     await trainModel(X_tensor, y_tensor);
 
     statusDiv.textContent = "Modell wird ausgewertet...";
-    if (trainingStatusDiv) {
+    if (trainingStatusDiv)
       trainingStatusDiv.textContent = "Modell wird ausgewertet...";
-    }
-
     computeTopKAccuracy(X_tensor, y_tensor);
     computePerplexity(X_tensor, y_tensor);
 
