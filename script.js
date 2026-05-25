@@ -290,21 +290,17 @@ function predictNextWord(inputText, topK = 5) {
   // Unbekannte Wörter erkennen
   const unknownWords = words.filter((w) => word2idx[w] === undefined);
 
-  // Hinweis anzeigen, aber NICHT abbrechen
   if (unknownWords.length > 0) {
-    statusDiv.textContent =
-      `Hinweis: Das Modell kennt folgende Wörter nicht: ${unknownWords.join(
-        ", "
-      )}. ` + `Die Vorhersage läuft trotzdem weiter.`;
+    statusDiv.textContent = `Hinweis: Das Modell kennt folgende Wörter nicht: ${unknownWords.join(
+      ", "
+    )}.`;
   } else {
     statusDiv.textContent = "Vorhersage erfolgreich berechnet.";
   }
 
   // Wörter in Zahlen umwandeln
   const seq = lastWords.map((w) => {
-    if (word2idx[w] === undefined) {
-      return word2idx["<unk>"];
-    }
+    if (word2idx[w] === undefined) return word2idx["<unk>"];
     return word2idx[w];
   });
 
@@ -318,26 +314,53 @@ function predictNextWord(inputText, topK = 5) {
   ]);
 
   // Vorhersage ausführen
-  const probs = tf.tidy(() => {
+  let probs = tf.tidy(() => {
     const prediction = model.predict(input);
     return Array.from(prediction.dataSync());
   });
 
   input.dispose();
 
-  // ==========================================
-  // NEU: DYNAMISCHE WIEDERHOLUNGSSPERRE
-  // ==========================================
-  // Wir schauen uns die letzten 3 geschriebenen Wörter an.
-  const recentWords = words.slice(-3);
+  // ============================================================
+  // ERWEITERTE SCHLEIFEN-BREMSE & STOPPWORT-REGULIERUNG
+  // ============================================================
+
+  // 1. Bestrafe Wörter, die in den letzten 6 Wörtern vorkamen
+  const recentWords = words.slice(-6);
   recentWords.forEach((w) => {
     const idx = word2idx[w];
-    // Wenn das Wort im Vokabular existiert, strafen wir es ab (Mal 0.1)
     if (idx !== undefined && w !== "<pad>" && w !== "<unk>") {
-      probs[idx] *= 0.1; // Senkt die Chance dramatisch, dass es sich sofort wiederholt
+      // Je öfter es vorkommt, desto härter die Strafe
+      probs[idx] *= 0.05;
     }
   });
-  // ==========================================
+
+  // 2. Wenn das Modell unsicher ist (Maximum unter 15%),
+  // drosseln wir die grammatikalischen "Füllwörter" massiv,
+  // um Inhaltswörter wie "kompression" nach oben zu spülen!
+  const maxProb = Math.max(...probs);
+  if (maxProb < 0.15) {
+    const stopWords = [
+      "und",
+      "die",
+      "der",
+      "das",
+      "ein",
+      "eine",
+      "ist",
+      "in",
+      "zu",
+      "mit",
+      "von",
+    ];
+    stopWords.forEach((word) => {
+      const idx = word2idx[word];
+      if (idx !== undefined) {
+        probs[idx] *= 0.1; // Drücke Stoppwörter aktiv weg
+      }
+    });
+  }
+  // ============================================================
 
   // Beste Vorhersagen holen
   const topIndices = Array.from(probs.keys())
