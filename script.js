@@ -320,26 +320,9 @@ function predictNextWord(inputText, topK = 5) {
   ]);
 
   // Vorhersage
-  // const probs = tf.tidy(() => {
-  // const prediction = model.predict(input);
-  // return prediction.dataSync();
-  // });
-
   const probs = tf.tidy(() => {
     const prediction = model.predict(input);
-    const values = Array.from(prediction.dataSync());
-
-    // Häufige Stoppwörter leicht bestrafen
-    const stopWords = ["und", "die", "der", "das", "ein", "eine", "ist"];
-
-    stopWords.forEach((word) => {
-      const idx = word2idx[word];
-      if (idx !== undefined) {
-        values[idx] *= 0.65;
-      }
-    });
-
-    return values;
+    return Array.from(prediction.dataSync());
   });
 
   input.dispose();
@@ -390,45 +373,61 @@ predictBtn.onclick = () => {
   }
 };
 
-function choosePrediction(predictions, text) {
-  const softBlockedWords = ["und", "die", "der", "das", "ein", "eine", "ist"];
-  const currentWords = cleanText(text);
-  const recentWords = currentWords.slice(-4);
+// Funktion für Temperature-Sampling (verhindert Endlosschleifen)
+function sampleWithTemperature(probs, temperature = 0.6) {
+  // 1. Logits aus den Wahrscheinlichkeiten rekonstruieren und durch Temperatur teilen
+  let logits = probs.map((p) => Math.log(p + 1e-7) / temperature);
 
-  let candidates = predictions.filter(
-    (p) =>
-      p.word !== "<pad>" && p.word !== "<unk>" && !recentWords.includes(p.word)
-  );
+  // 2. Erneutes Softmax über die skalierten Logits berechnen
+  const expLogits = logits.map((l) => Math.exp(l));
+  const sumExpLogits = expLogits.reduce((a, b) => a + b, 0);
+  const scaledProbs = expLogits.map((e) => e / sumExpLogits);
 
-  if (candidates.length === 0) {
-    candidates = predictions.filter(
-      (p) => p.word !== "<pad>" && p.word !== "<unk>"
-    );
+  // 3. Zufällige Auswahl basierend auf der neuen Wahrscheinlichkeitsverteilung
+  const r = Math.random();
+  let cumulativeProbability = 0;
+  for (let i = 0; i < scaledProbs.length; i++) {
+    cumulativeProbability += scaledProbs[i];
+    if (r <= cumulativeProbability) {
+      return i; // Gibt den Index des gewählten Wortes zurück
+    }
   }
-
-  const goodCandidates = candidates.filter(
-    (p) => !softBlockedWords.includes(p.word)
-  );
-
-  if (goodCandidates.length > 0 && Math.random() < 0.7) {
-    candidates = goodCandidates;
-  }
-
-  const randomIndex = Math.floor(
-    Math.random() * Math.min(3, candidates.length)
-  );
-  return candidates[randomIndex];
+  return probs.indexOf(Math.max(...probs)); // Fallback: Sicherung bei Rundungsfehlern
 }
+
+// DIESE BEIDEN BUTTON-EVENTS ERSETZEN:
 
 nextBtn.onclick = () => {
   const textArea = document.getElementById("inputText");
-  const predictions = predictNextWord(textArea.value, 5);
+  if (!modelReady || cleanText(textArea.value).length < 1) return;
 
-  if (predictions.length === 0) return;
+  // 1. Wir holen uns die rohen Wahrscheinlichkeiten für das aktuelle Textfeld
+  const words = cleanText(textArea.value);
+  let lastWords = words.slice(-sequenceLength);
+  while (lastWords.length < sequenceLength) lastWords.unshift("<pad>");
+  const seq = lastWords.map((w) =>
+    word2idx[w] === undefined ? word2idx["<unk>"] : word2idx[w]
+  );
 
-  const selected = choosePrediction(predictions, textArea.value);
+  const input = tf.tensor3d([
+    seq.map((idx) => {
+      const oneHot = new Array(vocab.length).fill(0);
+      oneHot[idx] = 1;
+      return oneHot;
+    }),
+  ]);
 
-  textArea.value = textArea.value.trim() + " " + selected.word;
+  const probs = tf.tidy(() => Array.from(model.predict(input).dataSync()));
+  input.dispose();
+
+  // 2. Nutze Temperature Sampling (0.6 sorgt für gute Balance aus Logik und Abwechslung)
+  const nextWordIdx = sampleWithTemperature(probs, 0.6);
+  const chosenWord = idx2word[nextWordIdx];
+
+  // 3. Text anhängen und UI updaten
+  if (chosenWord && chosenWord !== "<pad>" && chosenWord !== "<unk>") {
+    textArea.value = textArea.value.trim() + " " + chosenWord;
+  }
 
   const topPredictions = predictNextWord(textArea.value);
   displayPredictions(topPredictions);
@@ -448,20 +447,37 @@ autoBtn.onclick = () => {
     }
 
     const textArea = document.getElementById("inputText");
-    //const predictions = predictNextWord(textArea.value, 1);
-    const predictions = predictNextWord(textArea.value, 5);
-
-    if (predictions.length === 0) {
+    const words = cleanText(textArea.value);
+    if (words.length < 1) {
       clearInterval(autoInterval);
-      statusDiv.textContent = "Automatische Vorhersage wurde gestoppt.";
       return;
     }
 
-    // textArea.value += " " + predictions[0].word;
-    //const randomIndex = Math.floor(Math.random() * Math.min(3, predictions.length));
-    //textArea.value += " " + predictions[randomIndex].word;
-    const selected = choosePrediction(predictions, textArea.value);
-    textArea.value = textArea.value.trim() + " " + selected.word;
+    // Vorhersage-Tensor für die Schleife bauen
+    let lastWords = words.slice(-sequenceLength);
+    while (lastWords.length < sequenceLength) lastWords.unshift("<pad>");
+    const seq = lastWords.map((w) =>
+      word2idx[w] === undefined ? word2idx["<unk>"] : word2idx[w]
+    );
+
+    const input = tf.tensor3d([
+      seq.map((idx) => {
+        const oneHot = new Array(vocab.length).fill(0);
+        oneHot[idx] = 1;
+        return oneHot;
+      }),
+    ]);
+
+    const probs = tf.tidy(() => Array.from(model.predict(input).dataSync()));
+    input.dispose();
+
+    // Höhere Temperatur für den Auto-Modus (0.7), um Wiederholungen noch stärker zu unterdrücken
+    const nextWordIdx = sampleWithTemperature(probs, 0.7);
+    const chosenWord = idx2word[nextWordIdx];
+
+    if (chosenWord && chosenWord !== "<pad>" && chosenWord !== "<unk>") {
+      textArea.value = textArea.value.trim() + " " + chosenWord;
+    }
 
     const topPredictions = predictNextWord(textArea.value);
     displayPredictions(topPredictions);
