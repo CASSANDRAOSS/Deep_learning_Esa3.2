@@ -395,13 +395,14 @@ function sampleWithTemperature(probs, temperature = 0.6) {
   return probs.indexOf(Math.max(...probs)); // Fallback: Sicherung bei Rundungsfehlern
 }
 
-// DIESE BEIDEN BUTTON-EVENTS ERSETZEN:
-
+// ==========================================
+// WEITER-BUTTON: Nimmt strikt das k=1 Wort!
+// ==========================================
 nextBtn.onclick = () => {
   const textArea = document.getElementById("inputText");
   if (!modelReady || cleanText(textArea.value).length < 1) return;
 
-  // 1. Wir holen uns die rohen Wahrscheinlichkeiten für das aktuelle Textfeld
+  // 1. Hole die Vorhersage für den aktuellen Text
   const words = cleanText(textArea.value);
   let lastWords = words.slice(-sequenceLength);
   while (lastWords.length < sequenceLength) lastWords.unshift("<pad>");
@@ -420,9 +421,9 @@ nextBtn.onclick = () => {
   const probs = tf.tidy(() => Array.from(model.predict(input).dataSync()));
   input.dispose();
 
-  // 2. Nutze Temperature Sampling (0.6 sorgt für gute Balance aus Logik und Abwechslung)
-  const nextWordIdx = sampleWithTemperature(probs, 0.6);
-  const chosenWord = idx2word[nextWordIdx];
+  // 2. STRIKT: Finde den Index mit der HÖCHSTEN Wahrscheinlichkeit (k=1)
+  const maxIdx = probs.indexOf(Math.max(...probs));
+  const chosenWord = idx2word[maxIdx];
 
   // 3. Text anhängen und UI updaten
   if (chosenWord && chosenWord !== "<pad>" && chosenWord !== "<unk>") {
@@ -433,6 +434,9 @@ nextBtn.onclick = () => {
   displayPredictions(topPredictions);
 };
 
+// ==========================================
+// AUTO-BUTTON: Nutzt Temperatur NUR innerhalb der Top-5
+// ==========================================
 autoBtn.onclick = () => {
   let count = 0;
   const maxWords = 10;
@@ -453,7 +457,7 @@ autoBtn.onclick = () => {
       return;
     }
 
-    // Vorhersage-Tensor für die Schleife bauen
+    // Vorhersage holen
     let lastWords = words.slice(-sequenceLength);
     while (lastWords.length < sequenceLength) lastWords.unshift("<pad>");
     const seq = lastWords.map((w) =>
@@ -471,9 +475,18 @@ autoBtn.onclick = () => {
     const probs = tf.tidy(() => Array.from(model.predict(input).dataSync()));
     input.dispose();
 
-    // Höhere Temperatur für den Auto-Modus (0.7), um Wiederholungen noch stärker zu unterdrücken
-    const nextWordIdx = sampleWithTemperature(probs, 0.7);
-    const chosenWord = idx2word[nextWordIdx];
+    // 1. Beschränke das Sampling NUR auf die Top-5 angezeigten Wörter!
+    const top5Indices = Array.from(probs.keys())
+      .sort((a, b) => probs[b] - probs[a])
+      .slice(0, 5);
+
+    const top5Probs = top5Indices.map((idx) => probs[idx]);
+
+    // 2. Wende das Temperature-Sampling nur auf diese 5 Werte an
+    const sampledTop5Idx = sampleWithTemperature(top5Probs, 0.5);
+    const finalWordIdx = top5Indices[sampledTop5Idx]; // Mappe zurück auf den echten Vokabular-Index
+
+    const chosenWord = idx2word[finalWordIdx];
 
     if (chosenWord && chosenWord !== "<pad>" && chosenWord !== "<unk>") {
       textArea.value = textArea.value.trim() + " " + chosenWord;
