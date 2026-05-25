@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Next Word Prediction LSTM</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.12.0/dist/tf.min.js"></script>
+</head>
+<body>
+
+    <!-- Header mit Icon -->
+    <header class="header">
+        <img src="assets/BackgroundEraser_20230129_150748725.png" alt="Icon" class="header-icon">
+        <h1>Next Word Prediction (LSTM)</h1>
+    </header>
+
+    <!-- Hauptbereich -->
+    <section class="main-section">
+
+        <textarea id="inputText" rows="5" placeholder="Gib hier einen Text ein..."></textarea>
+
+        <div class="button-row">
+            <button id="predictBtn">Vorhersage</button>
+            <button id="nextBtn">Weiter</button>
+            <button id="autoBtn">Auto</button>
+            <button id="stopBtn">Stopp</button>
+            <button id="resetBtn">Reset</button>
+        </div>
+
+        <div id="predictions"></div>
+        <div id="status">Modell wird geladen...</div>
+
+        <h2>Ergebnisse</h2>
+        <div id="results"></div>
+
+
+        <!-- Dropdown: Hilfe -->
+        <div class="dropdown">
+            <button class="dropdown-toggle">Hilfe</button>
+            <div class="dropdown-content" class="help-box">
+                <h3>Wie benutze ich dieses Language Model?</h3>
+                <ul>
+                    <li><strong>Text eingeben:</strong> Beginne mit einem Wort oder Satz.</li>
+                    <li><strong>Vorhersage:</strong> Zeigt die wahrscheinlichsten nächsten Wörter.</li>
+                    <li><strong>Weiter:</strong> Fügt das wahrscheinlichste Wort an.</li>
+                    <li><strong>Auto:</strong> Generiert bis zu 10 Wörter automatisch.</li>
+                    <li><strong>Stopp:</strong> Unterbricht die automatische Generierung.</li>
+                    <li><strong>Reset:</strong> Setzt Text und Vorhersagen zurück.</li>
+                </ul>
+
+                
+            </div>
+        </div>
+
+        <!-- Dropdown: Diskussion -->
+        <div class="dropdown">
+            <button class="dropdown-toggle">Diskussion</button>
+            <div class="dropdown-content" id="discussion" class="help-box">
+                <p>
+            Wenn ein Modell beginnt, Sprache zu lernen, wirkt es ein wenig wie ein Mensch, der sich zum ersten 
+            Mal in einem neuen Themengebiet bewegt: vorsichtig, tastend, aber mit wachsender Sicherheit. 
+            Das LSTM erkennt Muster in den Wortfolgen und versucht, aus ihnen eine Art inneres Verständnis zu 
+            formen. Manche Vorhersagen wirken erstaunlich passend, andere zeigen, wie schnell ein Modell ins Stolpern 
+            geraten kann, wenn der Kontext zu schmal ist. Die Top‑k‑Werte machen sichtbar, dass das Modell zwar nicht 
+            immer das exakte nächste Wort trifft, aber oft eine plausible Richtung erkennt. Die Perplexity zeigt, wie 
+            viel Unsicherheit noch im System steckt, ein Hinweis darauf, dass der Trainingskorpus begrenzt war. 
+            Gleichzeitig wird deutlich, wie sensibel solche Modelle auf Datenmenge und -qualität reagieren. Die 
+            automatische Textgenerierung zeigt, dass rekurrente Netze dazu neigen, sich an vertraute Muster zu klammern, 
+            wenn ihnen die Vielfalt fehlt. Doch gerade diese Grenzen machen sichtbar, wie Sprache funktioniert: 
+            als Zusammenspiel aus Wiederholung, Variation und Erwartung. Das Projekt zeigt, wie maschinelle Modelle 
+            versuchen, Ordnung in sprachliche Abläufe zu bringen, ohne sie je vollständig zu erfassen. 
+            Und vielleicht liegt genau darin ihr Wert, im Versuch, Struktur in etwas zu finden, das immer ein wenig 
+            offen bleibt.
+             </p>
+            </div>
+        </div>
+
+        <!-- Dropdown: Dokumentation -->
+        <div class="dropdown">
+            <button class="dropdown-toggle">Dokumentation</button>
+            <div class="dropdown-content" id="documentation" class="help-box">
+                <p>
+            Die Anwendung verbindet eine klare Weboberfläche mit einem rekurrenten neuronalen Netz, 
+            das vollständig im Browser ausgeführt wird. HTML und CSS bilden den ruhigen Rahmen, während JavaScript 
+            und TensorFlow.js die eigentliche Logik tragen. Das Modell besteht aus zwei LSTM‑Schichten mit jeweils 
+            100 Einheiten und einer Softmax‑Ausgabe, die die Wahrscheinlichkeitsverteilung über das Vokabular 
+            berechnet. Die Trainingsdaten werden lokal geladen, in Wörter zerlegt und in One‑Hot‑Vektoren übersetzt, 
+            sodass sie als Tensoren verarbeitet werden können. Trainiert wird mit dem Adam‑Optimizer und einem 
+            kategorischen Kreuzentropie‑Loss, der misst, wie weit die Vorhersagen des Modells von der tatsächlichen 
+            Wortfolge entfernt sind. Die Benutzeroberfläche reagiert unmittelbar auf Eingaben und zeigt Vorhersagen, 
+            Statusmeldungen und Evaluationsmetriken direkt an. Alle Berechnungen finden lokal statt, ohne Server oder 
+            externe Dienste, ein kleines, in sich geschlossenes System, das Sprache beobachtet und daraus lernt.
+        </p>
+
+        <p>
+            Im Zentrum der Anwendung steht die Idee, Sprache als Abfolge von Entscheidungen zu betrachten: 
+            Welches Wort folgt auf ein anderes, und warum? Ein LSTM‑Modell eignet sich dafür besonders gut, weil es 
+            nicht nur das aktuelle Wort betrachtet, sondern auch die Spuren der vorherigen Wörter mitführt. Der 
+            Trainingsprozess basiert auf Sequenzen aus fünf Wörtern, aus denen das Modell das nächste Wort 
+            vorhersagen soll. Jedes Wort wird in eine eindeutige Position im Vokabular übersetzt und als One‑Hot‑Vektor 
+            dargestellt, sodass das Modell ausschließlich mit numerischen Mustern arbeitet. Während des Trainings lernt 
+            es, Regelmäßigkeiten in diesen Sequenzen zu erkennen und Wahrscheinlichkeiten für mögliche Fortsetzungen 
+            zu berechnen. Die anschließende Textgenerierung zeigt, wie das Modell diese Wahrscheinlichkeiten nutzt, 
+            um Schritt für Schritt neue Sätze zu formen, manchmal stimmig, manchmal zögerlich. Die Evaluation über 
+            Top‑k‑Accuracy und Perplexity macht sichtbar, wie gut das Modell die Struktur des Trainingskorpus erfasst 
+            hat und wo seine Grenzen liegen. Insgesamt zeigt die Anwendung, wie maschinelle Sprachmodelle funktionieren: 
+            als Systeme, die aus Daten lernen, Muster erkennen und daraus eine eigene, statistische Sicht auf Sprache 
+            entwickeln.
+        </p>
+            </div>
+        </div>
+
+
+        
+
+    </section>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

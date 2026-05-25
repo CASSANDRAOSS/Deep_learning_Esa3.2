@@ -1,0 +1,187 @@
+/* Grundlayout */
+body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    background: #fafafa;
+    color: #333;
+    margin: 40px auto;
+    max-width: 800px;
+    line-height: 1.6;
+}
+
+/* Überschrift */
+h1 {
+    text-align: center;
+    font-weight: 600;
+    margin-bottom: 25px;
+    color: #222;
+}
+
+/* Textarea */
+textarea {
+    width: 100%;
+    font-size: 16px;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    background: white;
+    resize: vertical;
+}
+
+/* Button-Leiste */
+button {
+    padding: 10px 18px;
+    margin: 6px 4px;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+/* Primäre Buttons */
+#predictBtn, #nextBtn, #autoBtn {
+    background: #4a90e2;
+    color: white;
+}
+
+#predictBtn:hover,
+#nextBtn:hover,
+#autoBtn:hover {
+    background: #3a78c2;
+}
+
+/* Stopp */
+#stopBtn {
+    background: #e94e4e;
+    color: white;
+}
+
+#stopBtn:hover {
+    background: #c63c3c;
+}
+
+/* Reset */
+#resetBtn {
+    background: #ddd;
+}
+
+#resetBtn:hover {
+    background: #ccc;
+}
+
+/* Predictions */
+#predictions {
+    margin-top: 15px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+#predictions button {
+    background: #eee;
+    color: #333;
+    border-radius: 6px;
+    padding: 8px 12px;
+}
+
+#predictions button:hover {
+    background: #ddd;
+}
+
+/* Statusanzeige */
+#status {
+    margin-top: 15px;
+    font-style: italic;
+    color: #666;
+}
+
+/* Ergebnisse / Doku */
+h2 {
+    margin-top: 35px;
+    font-weight: 600;
+    color: #222;
+}
+
+#results, #documentation, #discussion {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    margin-top: 10px;
+}
+
+/* Header */
+.header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.header-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 12px;
+}
+
+/* Button-Reihe */
+.button-row {
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+/* Hilfe-Sektion */
+.help-box {
+    background: white;
+    padding: 15px 20px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    margin-top: 10px;
+}
+
+.help-box h3 {
+    margin-top: 10px;
+    margin-bottom: 5px;
+}
+
+.help-box ul {
+    margin-left: 20px;
+}
+
+/* Dropdown-Container */
+.dropdown {
+    margin-top: 15px;
+}
+
+/* Dropdown-Button */
+.dropdown-toggle {
+    width: 100%;
+    text-align: left;
+    padding: 12px 15px;
+    background: hsl(155, 72%, 59%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.dropdown-toggle:hover {
+    background: #3a78c2;
+}
+
+/* Inhalt (zunächst versteckt) */
+.dropdown-content {
+    display: none;
+    background: white;
+    padding: 15px 20px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    margin-top: 8px;
+}
+
+/* Sichtbar, wenn aktiv */
+.dropdown.open .dropdown-content {
+    display: block;
+}
