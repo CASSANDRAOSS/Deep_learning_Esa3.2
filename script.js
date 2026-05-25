@@ -224,7 +224,7 @@ async function trainModel(X, y) {
   initTrainingChart();
 
   await model.fit(X, y, {
-    epochs: 10,
+    epochs: 15,
     batchSize: 32,
     shuffle: true,
     callbacks: {
@@ -241,7 +241,7 @@ async function trainModel(X, y) {
         }
 
         if (trainingStatusDiv) {
-          trainingStatusDiv.textContent = `Training läuft... Epoche ${currentEpoch}/10 | Loss: ${logs.loss.toFixed(
+          trainingStatusDiv.textContent = `Training läuft... Epoche ${currentEpoch}/15 | Loss: ${logs.loss.toFixed(
             4
           )}`;
         }
